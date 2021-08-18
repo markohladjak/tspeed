@@ -5,6 +5,7 @@
 #include <CAN_config.h>
 
 CAN_device_t CAN_cfg;               // CAN Config
+CAN_frame_t g_rx_frame;
 const int rx_queue_size = 10;       // Receive Queue size
 
 #else
@@ -96,6 +97,7 @@ String UINT64ToString(uint64_t val) {
 
 bool canSend(int id, int ext, int len, unsigned char* buf)
 {
+//  return true;
 #ifdef ESP32
     CAN_frame_t tx_frame;
     
@@ -112,10 +114,10 @@ bool canSend(int id, int ext, int len, unsigned char* buf)
 #else
     byte sndStat = CAN0.sendMsgBuf(id, ext, len, buf);
   
-    if(sndStat == CAN_OK)
-      Serial.println("Message Sent Successfully!");
-    else 
-      Serial.println("Error Sending Message...");
+//    if(sndStat == CAN_OK)
+//      Serial.println("Message Sent Successfully!");
+//    else 
+//      Serial.println("Error Sending Message...");
 
     return sndStat == CAN_OK;
 #endif
@@ -157,31 +159,45 @@ void print_state()
     Serial.println(pos_name[position]);
 }
 
-int canRead()
-{
-  rxId = 0;
-  
 #ifdef ESP32
-  CAN_frame_t rx_frame;
-//  if (xQueueReceive(CAN_cfg.rx_queue, &rx_frame, 3 * portTICK_PERIOD_MS) == pdTRUE) {
-  if (xQueueReceive(CAN_cfg.rx_queue, &rx_frame, 0) == pdTRUE) {
-    if (rx_frame.FIR.B.FF == CAN_frame_std) {
+void print_frame(CAN_frame_t *rx_frame, unsigned long delta = 0)
+{
+    if (rx_frame->FIR.B.FF == CAN_frame_std) {
       printf("New standard frame");
     }
     else {
       printf("New extended frame");
     }
 
-    if (rx_frame.FIR.B.RTR == CAN_RTR) {
-      printf(" RTR from 0x%08X, DLC %d\r\n", rx_frame.MsgID,  rx_frame.FIR.B.DLC);
+    if (rx_frame->FIR.B.RTR == CAN_RTR) {
+      printf(" RTR from 0x%08X, DLC %d\r", rx_frame->MsgID,  rx_frame->FIR.B.DLC);
     }
     else {
-      printf(" from 0x%08X, DLC %d, Data ", rx_frame.MsgID,  rx_frame.FIR.B.DLC);
-      for (int i = 0; i < rx_frame.FIR.B.DLC; i++) {
-        printf("0x%02X ", rx_frame.data.u8[i]);
+      printf(" from 0x%08X, DLC %d, Data ", rx_frame->MsgID,  rx_frame->FIR.B.DLC);
+      for (int i = 0; i < rx_frame->FIR.B.DLC; i++) {
+        printf("0x%02X ", rx_frame->data.u8[i]);
       }
-      printf("\n");
     }
+
+    printf("    delta: %lu", delta);
+    printf("\n");
+}
+#endif
+
+int canRead()
+{
+  rxId = 0;
+  
+#ifdef ESP32
+//  if (xQueueReceive(CAN_cfg.rx_queue, &rx_frame, 3 * portTICK_PERIOD_MS) == pdTRUE) {
+  if (xQueueReceive(CAN_cfg.rx_queue, &g_rx_frame, 0) == pdTRUE) {
+    rxId = g_rx_frame.MsgID;
+    len = g_rx_frame.FIR.B.DLC;
+
+    for (int i = 0; i < len; i++)
+      rxBuf[i] = (uint8_t)(g_rx_frame.data.u8[i]);
+    
+//    print_frame(&g_rx_frame);
   }
 #else
   if(!digitalRead(CAN0_INT))      // If CAN0_INT pin is low, read receive buffer
@@ -213,6 +229,9 @@ void loop()
     
     time_point = t;  
   }
+
+  process_hvac();
+  
   //delay(1);
 }
 
@@ -228,6 +247,7 @@ void send_speed()
 {
 //    byte sndStat = CAN0.sendMsgBuf(0x440, 0, 8, speed_buf);
     auto sndStat = canSend(0x440, 0, 8, speed_buf);
+
     Serial.print((int)speed_buf[2]);
     
     if(sndStat)
@@ -267,4 +287,23 @@ void process_gears(int id) {
 
   if (position == POS_SIZE-1 && gear > -1)
     gearWrite(gears[gear][1]);
+}
+
+void process_hvac()
+{
+    auto t = millis();
+    static long lt = 0;
+
+    static uint8_t f043[8] = {0x01, 0xF3, 0xCF, 0x0E, 0x01, 0x00, 0x00, 0xF0};
+    static uint8_t f044[8] = {0x01, 0x00, 0x00, 0xFE, 0xFE, 0x00, 0x00, 0x00};
+    static uint8_t f383[8] = {0x05, 0x24, 0x44, 0xFF, 0xFF, 0x00, 0x00, 0x65};
+
+    if (t - lt >= 20)
+      canSend(0x383, 0, 8, f383);
+    if (t - lt >= 1000) {
+      canSend(0x043, 0, 8, f043);
+      canSend(0x044, 0, 8, f044);
+    }
+      
+    lt = t;
 }
