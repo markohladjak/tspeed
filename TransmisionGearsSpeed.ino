@@ -1,12 +1,22 @@
-// CAN Send Example
-//
+//#undef ESP32
 
+#ifdef ESP32
+#include <ESP32CAN.h>
+#include <CAN_config.h>
+
+CAN_device_t CAN_cfg;               // CAN Config
+const int rx_queue_size = 10;       // Receive Queue size
+
+#else
 #include <mcp_can.h>
 #include <SPI.h>
-#include <inttypes.h>
 
 MCP_CAN CAN0(10);     // Set CS to pin 10
-#define CAN0_INT 2                              // Set INT to pin 2
+#define CAN0_INT 2    // Set INT to pin 2
+
+#endif
+
+#include <inttypes.h>
 
 long unsigned int rxId;
 unsigned char len = 0;
@@ -17,12 +27,21 @@ void setup()
 {
   Serial.begin(115200);
 
+#ifdef ESP32
+  CAN_cfg.speed = CAN_SPEED_500KBPS;
+  CAN_cfg.tx_pin_id = GPIO_NUM_21;
+  CAN_cfg.rx_pin_id = GPIO_NUM_22;
+  CAN_cfg.rx_queue = xQueueCreate(rx_queue_size, sizeof(CAN_frame_t));
+  // Init CAN Module
+  ESP32Can.CANInit();
+#else
   // Initialize MCP2515 running at 16MHz with a baudrate of 500kb/s and the masks and filters disabled.
   if(CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK) 
   Serial.println("MCP2515 Initialized Successfully!");
   else Serial.println("Error Initializing MCP2515...");
 
   CAN0.setMode(MCP_NORMAL);   // Change to normal mode to allow messages to be transmitted
+#endif
 }
 
 #define POS_SIZE 5
@@ -75,21 +94,40 @@ String UINT64ToString(uint64_t val) {
     return String(Vh, HEX) + String(Vl, HEX);
 }
 
+bool canSend(int id, int ext, int len, unsigned char* buf)
+{
+#ifdef ESP32
+    CAN_frame_t tx_frame;
+    
+    tx_frame.FIR.B.FF = CAN_frame_std;
+    tx_frame.MsgID = id;
+    tx_frame.FIR.B.DLC = len;
+
+    for (int i=0; i < len; i++)
+      tx_frame.data.u8[i] = buf[i];
+
+    ESP32Can.CANWriteFrame(&tx_frame);
+
+    return true;
+#else
+    byte sndStat = CAN0.sendMsgBuf(id, ext, len, buf);
+  
+    if(sndStat == CAN_OK)
+      Serial.println("Message Sent Successfully!");
+    else 
+      Serial.println("Error Sending Message...");
+
+    return sndStat == CAN_OK;
+#endif
+}
 void gearRead(uint64_t &data){
     reverse(rxBuf);
-    
-    if(rxId != 0x111 && rxId != 0x113)
-      return -1;
 
     uint64_t d = (uint64_t)(*(uint64_t*)&rxBuf[0]);
     data = d & 0xfffff00000000000uLL;
-
-//      print_buf(rxId, rxBuf, len);
-//      Serial.println(UINT64ToString(data));
-    return rxId;
   }
 
-  void gearWrite(uint64_t data){
+void gearWrite(uint64_t data){
     uint64_t d = data;
     memcpy(rxBuf, (unsigned char *)&d, 8);
     
@@ -98,13 +136,8 @@ void gearRead(uint64_t &data){
 //    Serial.print("Write: ");
 //    print_buf(0x43f, rxBuf, 8);
 
-    byte sndStat = CAN0.sendMsgBuf(0x43f, 0, 8, rxBuf);
-  
-//    if(sndStat == CAN_OK)
-//      Serial.println("Message Sent Successfully!");
-//    else 
-//      Serial.println("Error Sending Message...");
-  }
+    canSend(0x43f, 0, 8, rxBuf);
+}
 
 int position = -1;
 int gear = -1;
@@ -126,7 +159,34 @@ void print_state()
 
 int canRead()
 {
+  rxId = 0;
+  
+#ifdef ESP32
+  CAN_frame_t rx_frame;
+//  if (xQueueReceive(CAN_cfg.rx_queue, &rx_frame, 3 * portTICK_PERIOD_MS) == pdTRUE) {
+  if (xQueueReceive(CAN_cfg.rx_queue, &rx_frame, 0) == pdTRUE) {
+    if (rx_frame.FIR.B.FF == CAN_frame_std) {
+      printf("New standard frame");
+    }
+    else {
+      printf("New extended frame");
+    }
+
+    if (rx_frame.FIR.B.RTR == CAN_RTR) {
+      printf(" RTR from 0x%08X, DLC %d\r\n", rx_frame.MsgID,  rx_frame.FIR.B.DLC);
+    }
+    else {
+      printf(" from 0x%08X, DLC %d, Data ", rx_frame.MsgID,  rx_frame.FIR.B.DLC);
+      for (int i = 0; i < rx_frame.FIR.B.DLC; i++) {
+        printf("0x%02X ", rx_frame.data.u8[i]);
+      }
+      printf("\n");
+    }
+  }
+#else
+  if(!digitalRead(CAN0_INT))      // If CAN0_INT pin is low, read receive buffer
     CAN0.readMsgBuf(&rxId, &len, rxBuf);      // Read data: len = data length, buf = data byte(s)
+#endif
 
     return rxId;
 }
@@ -139,12 +199,11 @@ unsigned long time_point = millis();
 
 void loop()
 {
-  if(!digitalRead(CAN0_INT))      // If CAN0_INT pin is low, read receive buffer
+  int id = 0;
+  
+  if(id = canRead())      // If CAN0_INT pin is low, read receive buffer
   {
-    int id = canRead();
-
     process_speed();
-
     process_gears(id);
   }
 
@@ -167,11 +226,11 @@ void process_speed()
 
 void send_speed()
 {
-    byte sndStat = CAN0.sendMsgBuf(0x440, 0, 8, speed_buf);
-
+//    byte sndStat = CAN0.sendMsgBuf(0x440, 0, 8, speed_buf);
+    auto sndStat = canSend(0x440, 0, 8, speed_buf);
     Serial.print((int)speed_buf[2]);
     
-    if(sndStat == CAN_OK)
+    if(sndStat)
       Serial.println("     +");
     else 
       Serial.println("     Failed");
