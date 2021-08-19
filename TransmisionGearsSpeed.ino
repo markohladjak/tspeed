@@ -292,18 +292,20 @@ void process_gears(int id) {
 void process_hvac()
 {
     auto t = millis();
-    static long lt = 0;
+    static unsigned long lt1 = millis();
+    static unsigned long lt2 = millis();
 
     static uint8_t f043[8] = {0x01, 0xF3, 0xCF, 0x0E, 0x01, 0x00, 0x00, 0xF0};
     static uint8_t f044[8] = {0x01, 0x00, 0x00, 0xFE, 0xFE, 0x00, 0x00, 0x00};
     static uint8_t f383[8] = {0x05, 0x24, 0x44, 0xFF, 0xFF, 0x00, 0x00, 0x65};
 
-    if (t - lt >= 20)
+    if (t - lt1 >= 20) {
       canSend(0x383, 0, 8, f383);
-    if (t - lt >= 1000) {
+      lt1 = t;
+    }
+    if (t - lt2 >= 1000) {
       canSend(0x043, 0, 8, f043);
       canSend(0x044, 0, 8, f044);
+      lt2 = t;
     }
-      
-    lt = t;
 }
