@@ -210,7 +210,7 @@ int canRead()
 void process_gears(int id);
 void process_speed();
 void send_speed();
-void process_check_engine();
+void process_check_engine(bool now = false);
 
 unsigned long time_point = millis();
 
@@ -222,6 +222,7 @@ void loop()
   {
     process_speed();
     process_gears(id);
+    process_check_engine(true);
   }
 
   unsigned long t = millis();
@@ -313,14 +314,21 @@ void process_hvac()
     }
 }
 
-void process_check_engine()
+unsigned long start_point = millis();
+
+void process_check_engine(bool now = false)
 {
+    if (millis() - start_point < 7000) 
+      return;
+
     auto t = millis();
     static unsigned long lt1 = millis();
 
     static uint8_t f545[8] = {0xD4, 0x53, 0x00, 0x8C, 0x00, 0x00, 0x00, 0xA8};
 
-    if (t - lt1 >= 10) {
+    if ((now && rxId == 0x545) 
+    || (t - lt1 >= 1)
+    ) {
       canSend(0x545, 0, 8, f545);
       lt1 = t;
     }
