@@ -210,6 +210,7 @@ int canRead()
 void process_gears(int id);
 void process_speed();
 void send_speed();
+void process_check_engine();
 
 unsigned long time_point = millis();
 
@@ -230,8 +231,10 @@ void loop()
     time_point = t;  
   }
 
-  process_hvac();
-  
+//  process_hvac();
+
+  process_check_engine();
+
   //delay(1);
 }
 
@@ -309,3 +312,18 @@ void process_hvac()
       lt2 = t;
     }
 }
+
+void process_check_engine()
+{
+    auto t = millis();
+    static unsigned long lt1 = millis();
+
+    static uint8_t f545[8] = {0xD4, 0x53, 0x00, 0x8C, 0x00, 0x00, 0x00, 0xA8};
+
+    if (t - lt1 >= 10) {
+      canSend(0x545, 0, 8, f545);
+      lt1 = t;
+    }
+}
+
+//545 8 D4 53 00 8C 00 00 00 A8 //CHECK INGEN OFF
