@@ -225,12 +225,12 @@ void loop()
 //    process_check_engine(true);
   }
 
-  unsigned long t = millis();
-  if (t - time_point > 100) {
-    send_speed();
+  // unsigned long t = millis();
+  // if (t - time_point > 100) {
+  //   send_speed();
     
-    time_point = t;  
-  }
+  //   time_point = t;  
+  // }
 
 //  process_hvac();
 
@@ -246,10 +246,12 @@ unsigned char speed_buf[8] = { 0xFF, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00,0x00 };
 
 void process_speed()
 {
-//  if (rxId == SPEED_ID && rxBuf[0] == 0x05) 
-  if (rxId == SPEED_ID) 
+//  if (rxId == SPEED_ID && rxBuf[0] == 0x05)   // for 0x316
 //    speed_buf[2] = rxBuf[6];
+  if (rxId == SPEED_ID) {
     speed_buf[2] = rxBuf[4];
+    send_speed();
+  }
 }
 
 void send_speed()
