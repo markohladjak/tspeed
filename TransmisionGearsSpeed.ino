@@ -293,10 +293,10 @@ void process_gears(int id) {
         }
   }
     
-  if (d == 0x111 && position >= 0 && position < 4)
+  if (id == 0x111 && position >= 0 && position < 4)
     gearWrite(positions[position][1]);
 
-  if (d == 0x113 && position == POS_SIZE-1 && gear > -1)
+  if (id == 0x113 && position == POS_SIZE-1 && gear > -1)
     gearWrite(gears[gear][1]);
 }
 
