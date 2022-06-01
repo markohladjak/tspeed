@@ -210,7 +210,7 @@ int canRead()
 void process_gears(int id);
 void process_speed();
 void send_speed();
-void process_check_engine(bool now = false);
+void process_check_engine(bool now);
 
 unsigned long time_point = millis();
 
@@ -222,7 +222,7 @@ void loop()
   {
     process_speed();
     process_gears(id);
-    process_check_engine(true);
+//    process_check_engine(true);
   }
 
   unsigned long t = millis();
@@ -234,17 +234,22 @@ void loop()
 
 //  process_hvac();
 
-  process_check_engine();
+//  process_check_engine();
 
   //delay(1);
 }
 
 unsigned char speed_buf[8] = { 0xFF, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00,0x00 };
 
+//#define SPEED_ID 0x316
+#define SPEED_ID 0x556
+
 void process_speed()
 {
-  if (rxId == 0x316 && rxBuf[0] == 0x05) 
-    speed_buf[2] = rxBuf[6];
+//  if (rxId == SPEED_ID && rxBuf[0] == 0x05) 
+  if (rxId == SPEED_ID) 
+//    speed_buf[2] = rxBuf[6];
+    speed_buf[2] = rxBuf[4];
 }
 
 void send_speed()
@@ -261,11 +266,11 @@ void send_speed()
 }
 
 void process_gears(int id) {
+  if(id == -1 || ( id != 0x111 && id !=0x113))
+    return;
+
   uint64_t data;
   gearRead(data);
-    
-  if(id == -1)
-    return;
 
   if (id == 0x111) {
     for (int i=0; i < POS_SIZE; i++)
@@ -316,9 +321,9 @@ void process_hvac()
 
 unsigned long start_point = millis();
 
-void process_check_engine(bool now = false)
+void process_check_engine(bool now)
 {
-    if (millis() - start_point < 7000) 
+    if (millis() - start_point < 4000) 
       return;
 
     auto t = millis();
