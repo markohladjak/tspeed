@@ -122,11 +122,11 @@ bool canSend(int id, int ext, int len, unsigned char* buf)
     return sndStat == CAN_OK;
 #endif
 }
-void gearRead(uint64_t &data){
+void gearRead(uint64_t &data, bool gear = false){
     reverse(rxBuf);
 
     uint64_t d = (uint64_t)(*(uint64_t*)&rxBuf[0]);
-    data = d & 0xfffff00000000000uLL;
+    data = d & (gear ? 0x0000f00000000000uLL : 0xfffff00000000000uLL);
   }
 
 void gearWrite(uint64_t data){
@@ -272,7 +272,7 @@ void process_gears(int id) {
     return;
 
   uint64_t data;
-  gearRead(data);
+  gearRead(data, id == 0x113);
 
   if (id == 0x111) {
     for (int i=0; i < POS_SIZE; i++)
