@@ -12,8 +12,8 @@ const int rx_queue_size = 10;       // Receive Queue size
 #include <mcp_can.h>
 #include <SPI.h>
 
-MCP_CAN CAN0(10);     // Set CS to pin 10
-#define CAN0_INT 2    // Set INT to pin 2
+MCP_CAN CAN0(D8);     // Set CS to pin 10
+#define CAN0_INT D2    // Set INT to pin 2
 
 #endif
 
