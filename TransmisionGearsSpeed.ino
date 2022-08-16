@@ -2,8 +2,9 @@
 #include <SPI.h>
 #include <inttypes.h>
 
-MCP_CAN CAN0(10);     // Set CS to pin 10
-#define CAN0_INT 2    // Set INT to pin 2
+MCP_CAN CAN0(D8);     // Set CS to pin 10
+#define CAN0_INT D2    // Set INT to pin 2
+// #define CAN0_INT 0    // Set INT to pin 2
 
 long unsigned int rxID;
 unsigned char len = 0;
@@ -12,7 +13,9 @@ unsigned char rxBuf[8];
 void setup()
 {
     Serial.begin(115200);
-    
+
+    Serial.println(F("Initializing....."));
+
     // CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ);
     
     if(CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK)
@@ -63,6 +66,7 @@ void loop()
   default:
       break;
   } 
+  // can_send(0x440, 8, speed_pkt_440);
 }
 
 void process_speed()
