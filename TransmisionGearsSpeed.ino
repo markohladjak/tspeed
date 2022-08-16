@@ -82,8 +82,11 @@ void process_selector_position()
 
     gear_pkt_0x43F[1] = (gear_pkt_0x43F[1] & 0xF0) + p;
 
-    if (p != S_POSITION_T::M)
+    if (p != S_POSITION_T::M) {
+        gear_pkt_0x43F[0] = p == S_POSITION_T::P ? 0x10 : 0x14; // ?
+
         can_send(0x43f, 8, gear_pkt_0x43F);
+    }
 }
 
 void process_gear()
@@ -113,3 +116,10 @@ void can_send(int id, int len, unsigned char* buf)
 {
     CAN0.sendMsgBuf(id, 0, len, buf);
 }
+
+
+// New HVAC connection:
+// left side - new HVAC side
+// Orange - Orange
+// Black - Black
+// Yellow - yellow
