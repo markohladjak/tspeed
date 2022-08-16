@@ -78,7 +78,7 @@ void process_speed()
 
 void process_selector_position()
 {
-    if (rxBuf[0] != 0x00 || rxBuf[1] & 0xF0 != 0x40 && rxBuf[2] != 0x60) return;
+    if (rxBuf[0] != 0x00 || ((rxBuf[1] & 0xF0) != 0x40 && rxBuf[2] != 0x60)) return;
 
     int p = (rxBuf[1] & 0x0F);
 
@@ -97,7 +97,7 @@ void process_gear()
 {
     gear_pkt_0x43F[0]= (gear_pkt_0x43F[0] & 0xF0) + ((rxBuf[2] & 0xF0) >> 4);
 
-    if (gear_pkt_0x43F[1] & 0x0F == S_POSITION_T::M)
+    if ((gear_pkt_0x43F[1] & 0x0F) == S_POSITION_T::M)
         can_send(0x43f, 8, gear_pkt_0x43F);
 }
 
