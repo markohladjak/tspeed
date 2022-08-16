@@ -11,7 +11,15 @@ unsigned char rxBuf[8];
 
 void setup()
 {
-    CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ);
+    Serial.begin(115200);
+    
+    // CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ);
+    
+    if(CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK)
+		  Serial.println(F("MCP2515 Initialized Successfully!"));
+	  else
+		  Serial.println(F("MCP2515 Initialized Failed!"));
+
     CAN0.setMode(MCP_NORMAL);
 }
 
